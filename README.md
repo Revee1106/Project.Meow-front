@@ -1,6 +1,6 @@
 # Tower PvP / Project.Meow Front
 
-Tower PvP 是一个移动端优先的异步据点 PvP 爬塔前端项目。当前仓库版本为 `0.1.0`，已从设计原型迁移为 React + TypeScript + Vite 工程，并完成 v1 页面和 v2 MVP 页面的一轮前端实现。
+Tower PvP 是一个移动端优先的异步据点 PvP 爬塔前端项目。当前仓库版本为 `0.1.0`，已从设计原型迁移为 React + TypeScript + Vite 工程，并完成 v1 页面和 v2 MVP 页面的前端实现。
 
 Git remote:
 
