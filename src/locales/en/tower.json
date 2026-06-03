@@ -1,0 +1,21 @@
+{
+  "tower.title": "Tower of Ash",
+  "floor.title": "Floor {floor}",
+  "floor.short": "F{floor}",
+  "floor.rule": "Rule",
+  "floor.cleared": "Cleared",
+  "floor.medium": "Medium",
+  "floor.small": "Small",
+  "floor.empty": "No nodes on this floor yet.",
+  "floor.unlocksNext": "Defeating this unlocks Floor {next}",
+  "floor.f1.name": "Outer Vault",
+  "floor.f1.rule": "Bandits drop +20% gold",
+  "floor.f2.name": "Crypt Gate",
+  "floor.f2.rule": "Undead deal +10% damage",
+  "floor.f3.name": "Hollow Spire",
+  "floor.f3.rule": "Casters gain +15% crit",
+  "floor.f4.name": "Ashen Reach",
+  "floor.f4.rule": "Fire damage doubled",
+  "floor.f5.name": "Abyssal Crown",
+  "floor.f5.rule": "All foes +25% power"
+}

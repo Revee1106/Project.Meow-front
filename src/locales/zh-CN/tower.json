@@ -1,0 +1,21 @@
+{
+  "tower.title": "灰烬之塔",
+  "floor.title": "第 {floor} 层",
+  "floor.short": "F{floor}",
+  "floor.rule": "规则",
+  "floor.cleared": "已清理",
+  "floor.medium": "中型",
+  "floor.small": "小型",
+  "floor.empty": "该楼层暂无节点。",
+  "floor.unlocksNext": "击败后解锁第 {next} 层",
+  "floor.f1.name": "外层宝库",
+  "floor.f1.rule": "盗匪金币掉落 +20%",
+  "floor.f2.name": "墓穴之门",
+  "floor.f2.rule": "亡灵伤害 +10%",
+  "floor.f3.name": "空洞尖塔",
+  "floor.f3.rule": "施法者暴击 +15%",
+  "floor.f4.name": "灰烬边境",
+  "floor.f4.rule": "火焰伤害翻倍",
+  "floor.f5.name": "深渊王冠",
+  "floor.f5.rule": "所有敌人战力 +25%"
+}

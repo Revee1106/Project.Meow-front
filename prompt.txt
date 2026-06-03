@@ -1,0 +1,647 @@
+请基于当前 `tower-pvp` 前端项目，生成一份完整的后端 API Contract 文档。
+
+当前前端已经完成：
+
+* v1 页面：
+
+  * Home
+  * Floor
+  * Node Detail Sheet
+* v2 MVP 页面：
+
+  * Battle Resolving / Replay
+  * Battle Result
+  * Garrison
+  * Equipment
+  * Reports
+  * Settings
+
+现在不要写后端代码，也不要修改前端代码。
+本次任务只生成后端接口契约文档：
+
+`Tower PvP Backend API Contract.md`
+
+请先完整阅读和检查当前真实前端代码，而不是只看设计文档。
+
+重点检查：
+
+1. `src/`
+2. `services/types.ts`
+3. `services/api.ts`
+4. `mocks/`
+5. `stores/`
+6. TanStack Query hooks，如果存在
+7. routes / router 配置
+8. i18n locale files
+9. Home 页面
+10. Floor 页面
+11. Node Detail Sheet
+12. Battle Resolve 页面
+13. Battle Result 页面
+14. Garrison 页面
+15. Equipment 页面
+16. Reports 页面
+17. Settings 页面
+18. 当前 mock 状态流转逻辑
+19. 当前 `VITE_USE_MOCKS` 或 mock/real API 切换方式
+
+也请参考这些设计文档和设计参考包，但它们不是唯一依据：
+
+1. `Codex Implementation Task.md`
+2. `Tower PvP Frontend Development Handoff.md`
+3. `design-reference/v2-mvp-screens/Tower PvP MVP Screens Handoff.md`
+4. `design-reference/v2-mvp-screens/Tower PvP MVP Screens Codex Implementation Task.md`
+
+重要原则：
+
+* 当前真实前端代码是后端接口契约的主要依据。
+* 设计文档用于理解玩法和状态覆盖。
+* 不要凭空设计一套与前端不匹配的大后端。
+* API Contract 必须能替换当前 mock service layer。
+* 前端组件不应该因为接真实后端而大改。
+* 后端应该成为玩家状态、节点占领、战斗结算、奖励结算、装备变更、战报生成的权威来源。
+
+# 1. 文档目标
+
+生成 `Tower PvP Backend API Contract.md`，用于后续开发后端 MVP。
+
+这份文档需要回答：
+
+1. 后端需要哪些模块？
+2. 前端每个 service 方法应该对应哪个真实 API？
+3. 每个 API 的 request / response 是什么？
+4. 当前 mock 数据字段如何映射到真实后端字段？
+5. 玩家状态机如何设计？
+6. 节点状态机如何设计？
+7. 挑战、战斗、占领、驻守、领取、离开、装备、战报如何结算？
+8. 后端如何保证状态权威和防重复提交？
+9. 如何先做内存版后端，再迁移到数据库持久化？
+
+# 2. MVP 范围
+
+第一版后端只支持当前前端 MVP 已实现的功能。
+
+必须覆盖：
+
+* Bootstrap / 首页初始化
+* Player profile
+* Floor / Node list
+* Node Detail 所需数据
+* Challenge node
+* Battle resolving / replay
+* Battle result
+* Occupy node
+* Garrison status
+* Claim garrison rewards
+* Leave garrison
+* Equipment list
+* Equip gear
+* Auto-equip gear
+* Reports list
+* Mark reports as read / mark all read
+* Settings / player preferences
+* Locale preference if current前端需要
+
+不要包含：
+
+* 实时 PVP
+* 实时多人同屏
+* 排行榜
+* 公会
+* 聊天
+* 好友
+* 交易市场
+* 复杂装备强化
+* 宝石 / 插槽
+* 套装系统
+* 复仇系统
+* 复杂赛季系统
+* 支付 / 商业化
+* 管理后台
+
+# 3. 核心玩法约束
+
+请在后端设计里明确以下约束：
+
+1. 玩家只有一个角色。
+2. 玩家同一时间只能处于以下状态之一：
+
+   * `free`
+   * `battle`
+   * `garrisoning`
+3. Garrison 不是底部 Tab，是 pushed route。
+4. PVP 是异步自动结算，不做实时战斗。
+5. PVE / PVP 战斗都由后端自动结算。
+6. 驻守收益使用懒结算：
+
+   * 不需要每分钟定时写入收益。
+   * 打开 Home / Garrison / Claim 时根据时间计算累计收益。
+   * 超过 reward cap 后停止继续累计。
+7. 被击败只失去当前据点。
+8. 被击败时自动结算或保留可领取收益，具体请根据当前前端 Garrison node lost 状态设计合理 contract。
+9. 玩家已解锁楼层不应因为被击败而回退。
+10. 占领某据点后，玩家不能继续挑战其他据点，除非先 Leave。
+11. Battle Result 应能驱动：
+
+    * Return to Floor
+    * Occupy
+    * Equip dropped gear if applicable
+12. Equipment 应能驱动：
+
+    * view equipped gear
+    * view backpack
+    * compare gear
+    * equip gear
+    * auto-equip best gear
+13. Reports 应能显示：
+
+    * attack win
+    * attack loss
+    * defense win
+    * node lost
+    * unread state
+    * rewards if any
+    * battle result / replay link if applicable
+
+# 4. 请输出的文档结构
+
+请按以下结构生成 `Tower PvP Backend API Contract.md`。
+
+## 1. Overview
+
+说明：
+
+* 这是为了替换当前前端 mock service layer 的后端 API Contract。
+* 覆盖 v1 + v2 完整前端 MVP。
+* 后端第一版建议先做内存版 API。
+* 后续再接数据库持久化。
+* API 应尽量兼容当前 `services/types.ts` 和 `services/api.ts`。
+
+## 2. Frontend inventory summary
+
+请总结当前前端已经实现的页面和它们需要的数据。
+
+至少包括：
+
+* Home
+* Floor
+* Node Detail
+* Battle Resolve
+* Battle Result
+* Garrison
+* Equipment
+* Reports
+* Settings
+
+对每个页面列出：
+
+* route
+* 使用的数据
+* 使用的 service 方法
+* 需要的状态
+* 可能触发的 action
+
+## 3. Existing frontend service mapping
+
+请读取当前 `services/api.ts`，列出当前已有 service 方法。
+
+输出一张映射表：
+
+| Frontend service method | Current mock source | Proposed backend endpoint | Notes |
+
+如果当前 service 方法不完整，也请提出建议新增的方法。
+
+## 4. Core backend modules
+
+请设计后端模块划分。
+
+建议至少包括：
+
+* Auth / Session placeholder
+* Player module
+* Tower module
+* Floor module
+* Node module
+* Battle module
+* Garrison module
+* Equipment module
+* Reports module
+* Settings module
+* Rewards module
+
+对每个模块说明：
+
+* 负责什么
+* 主要数据
+* 主要 API
+* 与其他模块的关系
+
+## 5. Data models
+
+请输出 TypeScript 风格的数据模型。
+
+至少包括：
+
+* Player
+* PlayerState
+* CurrencyWallet
+* Floor
+* Node
+* NodeType
+* NodeState
+* Occupier
+* Garrison
+* GarrisonStatus
+* Reward
+* RewardType
+* Battle
+* BattleStatus
+* BattleResult
+* BattleLogFrame
+* Gear
+* GearSlot
+* GearRarity
+* GearAttribute
+* EquipmentState
+* Report
+* ReportType
+* PlayerSettings
+* RedDots / NotificationSummary
+* ActivityRow
+
+要求：
+
+* 字段尽量兼容当前前端类型。
+* 标注哪些字段由后端持久化。
+* 标注哪些字段可由后端派生。
+* 标注哪些字段只是前端展示字段。
+* 标注时间字段使用 ISO string 还是 epoch ms，并保持统一。
+* 标注 i18n key 字段，例如 `nameKey`, `nodeNameKey`。
+* 玩家名、对手名是 raw user string，不应翻译。
+
+## 6. State machines
+
+请明确以下状态机。
+
+### Player state machine
+
+包括：
+
+* free
+* battle
+* garrisoning
+
+说明允许的转换：
+
+* free -> battle
+* battle -> free
+* free -> garrisoning
+* garrisoning -> free
+* garrisoning -> battle 是否允许，默认不允许
+* battle -> garrisoning 是否允许，通常通过 Battle Result 后 Occupy 才进入
+
+### Node state machine
+
+包括：
+
+* npcControlled
+* available
+* playerOccupied
+* occupiedByMe
+* protected
+* locked
+* cleared
+
+说明：
+
+* 哪些状态是数据库真实状态
+* 哪些是对当前玩家派生出来的展示状态
+* NPC 被击败后如何变成 available
+* 玩家占领后如何变成 playerOccupied / occupiedByMe
+* 保护期如何处理
+* 玩家离开后节点如何变化
+* 被其他玩家击败后节点如何变化
+
+### Battle state machine
+
+包括：
+
+* resolving
+* completed
+* expired / abandoned 是否需要，MVP 可不做
+
+说明：
+
+* challenge 创建 battle
+* 后端立即结算还是短暂 resolving
+* Battle Resolve 页面如何获取 log
+* Battle Result 页面如何获取 result
+
+### Garrison state machine
+
+包括：
+
+* active
+* left
+* lost
+
+说明：
+
+* claim 不改变 active 状态
+* leave 进入 left
+* 被击败进入 lost
+* lost 后是否还能 claim 已累计收益
+* lost 后 player.state 如何恢复 free
+
+## 7. API endpoints
+
+请详细设计 API。每个 API 必须包含：
+
+* Method
+* Path
+* Purpose
+* Request params
+* Request body
+* Response body
+* Possible errors
+* Frontend pages using it
+* Frontend service method mapping
+* Notes
+
+至少需要以下 API：
+
+### Bootstrap / Player
+
+* `GET /api/bootstrap`
+* `GET /api/player/profile`
+
+### Floor / Node
+
+* `GET /api/floors/:floorId`
+* `GET /api/nodes/:nodeId`，如果当前前端需要
+
+### Battle
+
+* `POST /api/tower/challenge`
+* `GET /api/battles/:battleId`
+* `GET /api/battles/:battleId/result`
+
+如果你认为 `GET /api/battles/:battleId` 可以同时返回 resolve + result，请说明。
+
+### Garrison
+
+* `GET /api/garrison/current`
+* `POST /api/strongholds/occupy`
+* `POST /api/garrison/claim`
+* `POST /api/garrison/leave`
+
+### Equipment
+
+* `GET /api/equipment`
+* `POST /api/equipment/equip`
+* `POST /api/equipment/auto-equip`
+
+如果前端已有 compare 逻辑且不需要后端 compare，请说明。
+
+### Reports
+
+* `GET /api/reports`
+* `POST /api/reports/:reportId/read`
+* `POST /api/reports/read-all`
+
+### Settings
+
+* `GET /api/settings`
+* `PATCH /api/settings`
+
+## 8. Request / response schemas
+
+请为每个 API 写出 TypeScript 风格 schema 示例。
+
+例如：
+
+```ts
+type BootstrapResponse = {
+  player: Player;
+  currentFloor: Floor;
+  garrison?: GarrisonView;
+  redDots: NotificationSummary;
+  activity: ActivityRow[];
+};
+```
+
+注意：
+
+* Response 字段要适合当前前端直接消费。
+* 不要设计过度嵌套、难以前端使用的结构。
+* 如果需要区分 DB model 和 View model，请明确说明。
+* Node 对当前玩家的 `occupiedByMe` 应该可以由 view model 派生。
+
+## 9. Error codes
+
+请设计统一错误码。
+
+至少包括：
+
+* `PLAYER_NOT_FREE`
+* `PLAYER_IN_BATTLE`
+* `PLAYER_GARRISONING`
+* `NODE_NOT_FOUND`
+* `NODE_LOCKED`
+* `NODE_PROTECTED`
+* `NODE_NOT_CHALLENGEABLE`
+* `NODE_NOT_OCCUPIABLE`
+* `NOT_NODE_OWNER`
+* `GARRISON_NOT_FOUND`
+* `NO_REWARDS_TO_CLAIM`
+* `GEAR_NOT_FOUND`
+* `GEAR_SLOT_MISMATCH`
+* `REPORT_NOT_FOUND`
+* `INSUFFICIENT_TICKETS`
+* `CONFLICT_STATE_CHANGED`
+* `DUPLICATE_REQUEST`
+* `VALIDATION_ERROR`
+* `INTERNAL_ERROR`
+
+说明每个错误会出现在什么 API、前端应该如何展示。
+
+## 10. Core settlement rules
+
+请设计 MVP 级别的核心结算规则。
+
+包括：
+
+* Challenge 结算流程
+* NPC 战斗胜利
+* NPC 战斗失败
+* PVP 攻击胜利
+* PVP 攻击失败
+* Battle reward generation
+* Gear drop generation
+* Node unlock / available 规则
+* Occupy 规则
+* Garrison reward lazy calculation
+* Claim 规则
+* Leave 规则
+* Node lost 规则
+* Equipment equip / auto-equip 规则
+* Reports generation 规则
+* Red dots / unread 规则
+
+规则可以简化，但必须能支持当前前端页面。
+
+## 11. Concurrency and idempotency
+
+请设计基本防重复和并发策略。
+
+至少说明：
+
+* Challenge 重复点击如何处理
+* Occupy 时节点被别人抢先占领怎么办
+* Claim 重复提交如何处理
+* Leave 和 Claim 同时发生如何处理
+* Equip 重复提交如何处理
+* 是否需要 idempotency key
+* 内存版 MVP 如何简化
+* 数据库版如何用事务或乐观锁处理
+
+## 12. Mock-to-real migration plan
+
+请说明如何从当前 mock service 切到真实后端。
+
+包括：
+
+* `VITE_USE_MOCKS=true` 继续走 mock
+* `VITE_USE_MOCKS=false` 走 HTTP API
+* 哪些 service 方法要改
+* 前端组件不应改
+* 哪些 mock 字段需要对齐 API 字段
+* 哪些当前前端类型可能需要微调
+
+## 13. Backend implementation phases
+
+请设计后端开发阶段。
+
+建议：
+
+### Phase 1 — Backend scaffold
+
+* Node/NestJS 或 Express，依据当前项目前端技术栈给建议
+* CORS
+* health check
+* basic error response format
+
+### Phase 2 — In-memory API
+
+* 实现 bootstrap
+* floors
+* battle challenge/result
+* garrison
+* equipment
+* reports
+* settings
+* 所有数据存在内存
+
+### Phase 3 — Frontend integration
+
+* 前端切 `VITE_USE_MOCKS=false`
+* 本地联调
+* 修正 contract mismatch
+
+### Phase 4 — Persistence
+
+* 引入数据库
+* 设计表结构
+* 迁移内存数据模型
+
+### Phase 5 — Hardening
+
+* 并发保护
+* 日志
+* 监控
+* 测试
+* 部署准备
+
+## 14. Database persistence plan
+
+虽然本次不实现数据库，但请给出后续表设计建议。
+
+至少包括：
+
+* players
+* player_wallets
+* floors
+* nodes
+* node_occupations / garrisons
+* battles
+* battle_logs
+* gear
+* player_gear
+* reports
+* player_settings
+
+说明：
+
+* 主键
+* 重要字段
+* 索引建议
+* 哪些字段需要乐观锁 version
+* 哪些数据可以配置化
+
+## 15. Security / validation notes
+
+请说明：
+
+* 客户端不能决定战斗结果
+* 客户端不能决定奖励
+* 客户端不能决定节点归属
+* 客户端不能直接提交 CP 变化
+* 后端必须重新读取玩家和节点状态
+* 后端必须校验玩家是否可执行操作
+* 后端必须校验装备归属
+* 后端必须校验 report 归属
+* MVP 可以先不做复杂反作弊，但接口设计要避免明显漏洞
+
+## 16. Frontend adjustments, if any
+
+请列出当前前端为了接真实 API 可能需要的最小调整。
+
+要求：
+
+* 优先不改组件。
+* 如果需要调整，说明原因。
+* 如果只是 service 层映射，说明不需要改页面。
+* 如果当前 types 和 API contract 有冲突，列出冲突和建议解决方案。
+
+## 17. Open questions
+
+列出需要我确认的问题。
+
+例如：
+
+* PVP 每日免费次数 / 挑战券是否现在就接入？
+* 保护期是否需要 MVP 接入？
+* Node lost 后收益如何处理？
+* 占领后节点是否先进入 protected？
+* Battle Resolve 是真实逐帧 log，还是只是 result theater？
+* Settings 是否需要后端持久化，还是先 localStorage？
+* Reports 是否需要分页？
+* Equipment 是否需要背包容量？
+
+# 5. 输出要求
+
+请生成完整 markdown 文档。
+只生成文档，不要修改代码。
+不要创建后端项目。
+不要创建数据库 schema 文件。
+不要修改前端文件。
+
+输出完成后，请报告：
+
+* 文档路径
+* 你读取了哪些关键前端文件
+* 发现的当前 service 方法
+* 发现的主要 contract 风险
+* 建议下一步
+
+本次任务到生成 `Tower PvP Backend API Contract.md` 为止。

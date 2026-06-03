@@ -1,0 +1,82 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&display=swap");
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--tw-bg);
+  color: var(--tw-text-primary);
+  font-family: var(--tw-font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.tw-num {
+  font-family: var(--tw-font-num);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.tw-display {
+  font-family: var(--tw-font-display);
+  letter-spacing: 0.02em;
+}
+
+.tw-scroll {
+  scrollbar-width: none;
+}
+
+.tw-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.app-scaffold {
+  min-height: 100vh;
+  background: var(--tw-bg);
+}
+
+@keyframes tw-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes tw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tw-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes tw-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(220%);
+  }
+}
