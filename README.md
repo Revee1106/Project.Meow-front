@@ -1,53 +1,44 @@
-# Tower PvP / Project.Meow
+# Tower PvP Frontend / Project.Meow-front
 
-Version: `0.0.1`
+Version: `0.1.0`
 
-Repository:
+Frontend repository:
 
 ```bash
-origin https://github.com/Revee1106/Project.Meow-front.git
+https://github.com/Revee1106/Project.Meow-front.git
+```
+
+Backend repository:
+
+```bash
+https://github.com/Revee1106/Project.Meow.git
 ```
 
 ## Overview
 
-Tower PvP is a mobile-first React + TypeScript + Vite frontend with an in-memory Express backend for the MVP tower PvP gameplay loop.
+This repository contains the Tower PvP frontend built with React, TypeScript, and Vite. It includes the mobile-first MVP screens, mock data mode, and HTTP service integration points for the separate backend repository.
 
-The backend currently runs inside `server/` and is intended for local development and frontend integration. It does not use a database or auth yet.
+Backend code does not live in this repository. Run the backend from `Project.Meow` when testing with `VITE_USE_MOCKS=false`.
 
-## Version 0.0.1 Commit Contents
+## Current Frontend Scope
 
-- Added Express + TypeScript backend scaffold under `server/`.
-- Added unified backend error response shape:
-  `{ ok:false, code, message, details?, requestId }`.
-- Added CORS and request id middleware.
-- Added Vite dev proxy for `/api` to `http://localhost:3001`.
-- Added in-memory state for player, floors, nodes, battles, garrisons, equipment, reports, settings, and idempotency.
-- Implemented read APIs:
-  - `GET /api/health`
-  - `GET /api/bootstrap`
-  - `GET /api/player/profile`
-  - `GET /api/floors/:floorId`
-  - `GET /api/nodes/:nodeId`
-- Implemented battle and garrison APIs:
-  - `POST /api/tower/challenge`
-  - `GET /api/battles/:battleId`
-  - `GET /api/battles/:battleId/result`
-  - `POST /api/strongholds/occupy`
-  - `GET /api/garrison/current`
-  - `POST /api/garrison/claim`
-  - `POST /api/garrison/leave`
-- Implemented equipment, reports, and settings APIs:
-  - `GET /api/equipment`
-  - `POST /api/equipment/equip`
-  - `POST /api/equipment/auto-equip`
-  - `GET /api/reports`
-  - `POST /api/reports/:reportId/read`
-  - `POST /api/reports/read-all`
-  - `GET /api/settings`
-  - `PATCH /api/settings`
-- Updated frontend HTTP service mappings for `VITE_USE_MOCKS=false`.
-- Updated Node Detail challenge flow to call the backend challenge API instead of using a fixed mock battle id.
-- Added backend API tests covering read APIs, battle/garrison loop, equipment, reports, settings, and error codes.
+- Home
+- Floor
+- Node Detail Sheet
+- Battle Resolve
+- Battle Result
+- Garrison
+- Equipment
+- Reports
+- Settings
+
+## Frontend Integration Status
+
+- `VITE_USE_MOCKS=true` keeps using local mock services.
+- `VITE_USE_MOCKS=false` switches service calls to HTTP `/api/...`.
+- Vite proxies `/api` to `http://localhost:3001` for local backend integration.
+- Node Detail challenge now calls `challengeNode(node.id)` and navigates with the backend battle id.
+- HTTP service mappings are present for read APIs, battle/garrison APIs, equipment, reports, and settings.
 
 ## Tech Stack
 
@@ -58,23 +49,16 @@ The backend currently runs inside `server/` and is intended for local developmen
 - TanStack Query
 - Zustand
 - i18next / react-i18next
-- Express
 - Vitest
 - Playwright
 - ESLint / Prettier
 
-## Development Commands
+## Development
 
-Install frontend dependencies:
+Install dependencies:
 
 ```bash
 npm install
-```
-
-Install backend dependencies:
-
-```bash
-npm --prefix server install
 ```
 
 Run frontend with mocks:
@@ -83,39 +67,31 @@ Run frontend with mocks:
 npm run dev
 ```
 
-Run backend:
-
-```bash
-npm run api:dev
-```
-
-Run frontend against backend:
+Run frontend against the backend:
 
 ```powershell
 $env:VITE_USE_MOCKS="false"; npm run dev
 ```
 
-Frontend URL:
+Frontend dev URL:
 
 ```text
 http://localhost:5173
 ```
 
-Backend URL:
+Expected backend URL:
 
 ```text
 http://localhost:3001
 ```
 
-## Validation Commands
+## Commands
 
 ```bash
 npm run lint
 npm run test
 npm run build
-npm run api:lint
-npm run api:test
-npm run api:build
+npm run test:e2e
 ```
 
 ## Environment Variables
@@ -124,24 +100,17 @@ npm run api:build
 VITE_USE_MOCKS=true
 ```
 
-Uses frontend mock services.
+Use frontend mock services.
 
 ```bash
 VITE_USE_MOCKS=false
 ```
 
-Uses real HTTP APIs through the Vite `/api` proxy.
+Use HTTP API through the local Vite proxy.
 
 ## Project Structure
 
 ```text
-server/
-  src/
-    app.ts
-    data.ts
-    errors.ts
-    index.ts
-    types.ts
 src/
   components/
   layouts/
@@ -151,11 +120,13 @@ src/
   stores/
   locales/
   styles/
+tests/
+  e2e/
+design-reference/
 ```
 
-## Current Limitations
+## Notes
 
-- Backend data is in-memory only and resets when the server restarts.
-- Auth/session support is not implemented.
-- Database persistence is not implemented.
-- Settings UI still primarily uses localStorage, while backend settings APIs are available for future integration.
+- This frontend repository should not contain backend implementation files.
+- The API contract document is kept for reference, but backend implementation belongs in `Project.Meow`.
+- Settings UI currently still uses localStorage; backend settings APIs are available in the backend repository for later integration.
