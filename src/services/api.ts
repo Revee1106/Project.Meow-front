@@ -1,18 +1,22 @@
 import { floor2, mockPlayer, recentActivity, redDots } from "../mocks/tower";
 import type {
   BasicOkResponse,
+  AutoEquipResponse,
   BattleLog,
   BattleResolvePayload,
   BattleResult,
   BootstrapPayload,
   ClaimResponse,
+  ChallengeResponse,
   EquipmentPayload,
+  EquipGearResponse,
   Floor,
   Garrison,
   GarrisonStateKey,
   LeaveResponse,
   OccupyResponse,
   Player,
+  PlayerSettings,
   RedDots,
   Report,
   ReportsPayload,
@@ -24,7 +28,7 @@ type TowerApi = {
   fetchBootstrap: () => Promise<BootstrapPayload>;
   fetchPlayerProfile: () => Promise<Player>;
   fetchFloor: (floorId: string | number) => Promise<Floor>;
-  challengeNode: (nodeId: string) => Promise<BattleLog>;
+  challengeNode: (nodeId: string) => Promise<ChallengeResponse>;
   occupyNode: (nodeId: string) => Promise<OccupyResponse>;
   claimGarrison: (nodeId: string) => Promise<ClaimResponse>;
   leaveGarrison: (nodeId: string, claim: boolean) => Promise<LeaveResponse>;
@@ -36,7 +40,8 @@ type TowerApi = {
     nodeId: string;
     battleId: string;
   }) => Promise<{ ok: true; garrisonId: string }>;
-  equipGear: (args: { gearId: string }) => Promise<BasicOkResponse>;
+  equipGear: (args: { gearId: string }) => Promise<EquipGearResponse | BasicOkResponse>;
+  autoEquipGear: (args?: { strategy?: "cp" }) => Promise<AutoEquipResponse>;
   fetchGarrison: (
     nodeId: string,
     opts?: { state?: GarrisonStateKey },
@@ -46,7 +51,10 @@ type TowerApi = {
   }) => Promise<{ ok: true; rewards: string[] }>;
   leaveGarrisonNode: (args: { nodeId: string }) => Promise<BasicOkResponse>;
   fetchEquipment: () => Promise<EquipmentPayload>;
+  markReportRead: (reportId: string) => Promise<BasicOkResponse>;
   markReportsRead: () => Promise<BasicOkResponse>;
+  fetchSettings: () => Promise<PlayerSettings>;
+  patchSettings: (settings: Partial<PlayerSettings>) => Promise<PlayerSettings>;
 };
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== "false";
@@ -103,7 +111,7 @@ const mockApi: TowerApi = {
     mockSession.player = { ...mockSession.player, state: "battle" };
     const node = findMockNode(nodeId);
     const battleId = `battle_${nodeId}`;
-    const battle: BattleLog = {
+    const legacyBattle: BattleLog = {
       id: battleId,
       result: "victory",
       frames: [
@@ -116,9 +124,20 @@ const mockApi: TowerApi = {
         node?.state === "npcControlled" || node?.state === "playerOccupied",
     };
 
-    mockSession.battles[battleId] = battle;
+    mockSession.battles[battleId] = legacyBattle;
     await wait();
-    return clone(battle);
+    const result = await getBattleResultFixtureMock("victoryNpc");
+
+    return {
+      battleId,
+      player: clone(mockSession.player),
+      battle: {
+        battle: { ...clone(result), id: battleId, nodeId },
+        log: clone(await getResolveLogFixtureMock()),
+      },
+      result: { ...clone(result), id: battleId, nodeId },
+      nextRoute: `/battle/resolve?battleId=${battleId}`,
+    };
   },
 
   async occupyNode(nodeId) {
@@ -284,6 +303,16 @@ const mockApi: TowerApi = {
     return { ok: true };
   },
 
+  async autoEquipGear() {
+    await wait(150);
+    return {
+      ok: true,
+      player: clone(mockSession.player),
+      equipment: clone(await getMockEquipmentSession()),
+      changedSlots: [],
+    };
+  },
+
   async fetchGarrison(nodeId, opts) {
     await wait(150);
     const reviewState = import.meta.env.DEV ? opts?.state : undefined;
@@ -345,6 +374,41 @@ const mockApi: TowerApi = {
 
     return { ok: true };
   },
+
+  async markReportRead(reportId) {
+    await wait(150);
+    if (!mockSession.reports.length) {
+      mockSession.reports = clone(await getReportsFixtureMock());
+    }
+
+    mockSession.reports = mockSession.reports.map((report) =>
+      report.id === reportId ? { ...report, unread: false } : report,
+    );
+
+    return { ok: true };
+  },
+
+  async fetchSettings() {
+    await wait(150);
+    return {
+      locale: "en",
+      sfx: true,
+      music: false,
+      notifications: true,
+      battleSpeed: "fast",
+    };
+  },
+
+  async patchSettings(settings) {
+    await wait(150);
+    return {
+      locale: settings.locale ?? "en",
+      sfx: settings.sfx ?? true,
+      music: settings.music ?? false,
+      notifications: settings.notifications ?? true,
+      battleSpeed: settings.battleSpeed ?? "fast",
+    };
+  },
 };
 
 const httpApi: TowerApi = {
@@ -360,16 +424,61 @@ const httpApi: TowerApi = {
   leaveGarrison: (nodeId, claim) =>
     request("/api/garrison/leave", { method: "POST", body: { nodeId, claim } }),
   fetchReports: () => request("/api/reports"),
-  fetchBattle: (battleId) => request(`/api/battles/${battleId}`),
-  fetchBattleResolve: () => notImplemented("fetchBattleResolve"),
-  fetchBattleResult: () => notImplemented("fetchBattleResult"),
-  occupyBattleNode: () => notImplemented("occupyBattleNode"),
-  equipGear: () => notImplemented("equipGear"),
-  fetchGarrison: () => notImplemented("fetchGarrison"),
-  claimGarrisonRewards: () => notImplemented("claimGarrisonRewards"),
-  leaveGarrisonNode: () => notImplemented("leaveGarrisonNode"),
+  fetchBattle: async (battleId) => {
+    const payload = await request<BattleResolvePayload | BattleLog>(
+      `/api/battles/${battleId}`,
+    );
+
+    if ("frames" in payload) {
+      return payload;
+    }
+
+    if (!("battle" in payload)) {
+      return {
+        id: battleId,
+        result: "victory",
+        frames: [],
+        rewards: [],
+      };
+    }
+
+    return {
+      id: battleId,
+      result: payload.battle.outcome,
+      frames: [],
+      rewards: payload.battle.typedRewards ?? [],
+      nodeNowAvailable: payload.battle.canOccupy,
+    };
+  },
+  fetchBattleResolve: (battleId) => request(`/api/battles/${battleId}`),
+  fetchBattleResult: (battleId) => request(`/api/battles/${battleId}/result`),
+  occupyBattleNode: (args) =>
+    request("/api/strongholds/occupy", { method: "POST", body: args }),
+  equipGear: (args) =>
+    request("/api/equipment/equip", { method: "POST", body: args }),
+  autoEquipGear: (args = { strategy: "cp" }) =>
+    request("/api/equipment/auto-equip", { method: "POST", body: args }),
+  fetchGarrison: (nodeId) =>
+    request(`/api/garrison/current?nodeId=${encodeURIComponent(nodeId)}`),
+  claimGarrisonRewards: async ({ nodeId }) => {
+    const response = await request<{
+      ok: true;
+      rewards: Reward[];
+      rewardTokens?: string[];
+    }>("/api/garrison/claim", { method: "POST", body: { nodeId } });
+
+    return { ok: true, rewards: response.rewardTokens ?? [] };
+  },
+  leaveGarrisonNode: ({ nodeId }) =>
+    request("/api/garrison/leave", { method: "POST", body: { nodeId } }),
   fetchEquipment: () => request("/api/equipment"),
-  markReportsRead: () => notImplemented("markReportsRead"),
+  markReportRead: (reportId) =>
+    request(`/api/reports/${reportId}/read`, { method: "POST" }),
+  markReportsRead: () =>
+    request("/api/reports/read-all", { method: "POST" }),
+  fetchSettings: () => request("/api/settings"),
+  patchSettings: (settings) =>
+    request("/api/settings", { method: "PATCH", body: settings }),
 };
 
 export const towerApi = USE_MOCKS ? mockApi : httpApi;
@@ -414,10 +523,6 @@ function findMockNode(nodeId: string): TowerNode | undefined {
   return Object.values(mockSession.floors)
     .flatMap((floor) => floor.nodes)
     .find((node) => node.id === nodeId);
-}
-
-function notImplemented(method: string): never {
-  throw new Error(`${method} is not implemented without VITE_USE_MOCKS=true`);
 }
 
 async function getBattleResultFixtureMock(battleId: string) {

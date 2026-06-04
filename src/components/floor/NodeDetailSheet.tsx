@@ -9,6 +9,7 @@ import { WinChancePill } from "../game/WinChancePill";
 import { winChanceBucket } from "../game/winChance";
 import { t } from "../../i18n/strings";
 import {
+  useChallengeNodeMutation,
   useLeaveGarrisonMutation,
   useOccupyNodeMutation,
 } from "../../services/queries";
@@ -38,6 +39,7 @@ export function NodeDetailSheet({
   const garrisonNodeName = t(garrisonNodeNameKey);
   const openConfirm = useUiStore((store) => store.openConfirm);
   const showToast = useUiStore((store) => store.showToast);
+  const challengeNode = useChallengeNodeMutation();
   const occupyNode = useOccupyNodeMutation();
   const leaveGarrison = useLeaveGarrisonMutation();
   const dragStartRef = useRef<{ y: number; t: number } | null>(null);
@@ -78,7 +80,11 @@ export function NodeDetailSheet({
     }
 
     if (variant === "npcControlled" || variant === "playerOccupied") {
-      navigate("/battle/resolve?battleId=victoryNpc");
+      challengeNode.mutate(node.id, {
+        onSuccess: (response) => {
+          navigate(response.nextRoute || `/battle/resolve?battleId=${response.battleId}`);
+        },
+      });
     }
   };
 
@@ -263,7 +269,8 @@ export function NodeDetailSheet({
             disabled={
               variant === "protected" ||
               variant === "locked" ||
-              occupyNode.isPending
+              occupyNode.isPending ||
+              challengeNode.isPending
             }
             variant={variant === "playerOccupied" ? "danger" : "primary"}
             onClick={handlePrimary}

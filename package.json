@@ -1,6 +1,6 @@
 {
   "name": "tower-pvp",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run src",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "api:dev": "npm --prefix server run dev",
+    "api:build": "npm --prefix server run build",
+    "api:lint": "npm --prefix server run lint",
+    "api:test": "npm --prefix server run test"
   },
   "dependencies": {
     "@tanstack/react-query": "5.83.0",

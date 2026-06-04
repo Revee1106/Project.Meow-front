@@ -13,6 +13,16 @@ export interface Player {
   };
   state: PlayerState;
   garrisonNodeId?: string;
+  activeBattleId?: string;
+  pvpDaily?: {
+    date: string;
+    freeUsed: number;
+    freeMax: 5;
+  };
+  highestUnlockedFloor?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  version?: number;
 }
 
 export type PlayerState = "free" | "garrisoning" | "battle";
@@ -72,6 +82,7 @@ export interface GarrisonState {
 }
 
 export type RewardType = "gold" | "stones" | "fragments" | "tickets" | "gear";
+export type Rarity = "common" | "rare" | "epic" | "legendary";
 
 export interface Reward {
   type: RewardType;
@@ -79,22 +90,20 @@ export interface Reward {
   rarity?: Rarity;
 }
 
-export type Rarity = "common" | "rare" | "epic" | "legendary";
-
-export type GearSlot =
-  | "weapon"
-  | "helmet"
-  | "armor"
-  | "ring"
-  | "necklace"
-  | "boots";
-
-export type GearStatKey = "atk" | "def" | "hp" | "crit" | "spd";
-
-export interface GearStat {
-  k: GearStatKey;
-  v: string | number;
+export interface Gear {
+  id: string;
+  slot: GearSlot;
+  tier?: 1 | 2 | 3 | 4 | 5;
+  rarity: Rarity;
+  nameKey: string;
+  attrs?: Partial<Record<AttrKey, number>>;
+  cp?: number;
+  level?: number;
+  stats?: Array<{ k: "atk" | "def" | "hp" | "crit" | "spd"; v: string | number }>;
+  isNew?: boolean;
 }
+
+export type GearSlot = "weapon" | "helmet" | "armor" | "ring" | "necklace" | "boots";
 
 export type AttrKey =
   | "attack"
@@ -106,17 +115,25 @@ export type AttrKey =
   | "attackSpeed"
   | "nodeRewardBonus";
 
-export interface Gear {
-  id: string;
-  slot: GearSlot;
-  tier?: 1 | 2 | 3 | 4 | 5;
-  rarity: Rarity;
-  nameKey: string;
-  attrs?: Partial<Record<AttrKey, number>>;
-  cp?: number;
-  level?: number;
-  stats?: GearStat[];
-  isNew?: boolean;
+export type EquipmentPayload = {
+  equipped: Record<GearSlot, Gear | null>;
+  backpack: Gear[];
+  capacity: number;
+};
+
+export interface EquipGearResponse {
+  ok: true;
+  player: Player;
+  equipment: EquipmentPayload;
+  equipped: Gear;
+  replaced?: Gear | null;
+}
+
+export interface AutoEquipResponse {
+  ok: true;
+  player: Player;
+  equipment: EquipmentPayload;
+  changedSlots: GearSlot[];
 }
 
 export type BattleOutcome = "victory" | "defeat";
@@ -166,8 +183,44 @@ export interface ChallengeResponse {
   battleId: string;
   player: Player;
   battle: BattleResolvePayload;
-  result?: BattleResult;
+  result: BattleResult;
+  pvpCost?: {
+    freeUsed: number;
+    freeMax: 5;
+    ticketSpent: boolean;
+    ticketsRemaining: number;
+  };
   nextRoute: string;
+}
+
+export interface OccupyResponse {
+  ok: true;
+  garrisonId: string;
+  player: Player;
+  node: TowerNode;
+  garrison: Garrison;
+  protectedUntil: string;
+  protectionMin: number;
+  floor?: Floor;
+  redDots?: RedDots;
+}
+
+export interface ClaimGarrisonResponse {
+  ok: true;
+  rewards: Reward[];
+  rewardTokens: string[];
+  player: Player;
+  garrison?: Garrison | null;
+  redDots?: RedDots;
+}
+
+export interface LeaveGarrisonResponse {
+  ok: true;
+  player: Player;
+  claimedRewards?: Reward[];
+  rewardTokens?: string[];
+  floor?: Floor;
+  redDots?: RedDots;
 }
 
 export interface GarrisonDefenseEntry {
@@ -175,16 +228,19 @@ export interface GarrisonDefenseEntry {
   opponent: string;
   time: string;
   fresh?: boolean;
+  battleId?: string;
 }
 
-export type GarrisonStateKey = "normal" | "capNear" | "capFull" | "empty" | "lost";
-
 export interface Garrison {
+  id?: string;
+  nodeId?: string;
   floor: number;
   nodeNameKey: string;
   nodeType: NodeType;
   durationMin: number;
   rewards: string[];
+  rewardTokens?: string[];
+  typedRewards?: Reward[];
   capPct: number;
   capInLabel: string;
   capHours: number;
@@ -195,71 +251,6 @@ export interface Garrison {
   lost?: boolean;
   lostTo?: string;
 }
-
-export type BasicOkResponse = { ok: true };
-
-export interface BattleLog {
-  id: string;
-  result: "victory" | "defeat";
-  frames: Array<{
-    t: number;
-    actor: "self" | "enemy";
-    dmg: number;
-    crit?: boolean;
-    heal?: number;
-  }>;
-  rewards: Reward[];
-  unlockedFloor?: number;
-  nodeNowAvailable?: boolean;
-}
-
-export type EquipmentPayload = {
-  equipped: Record<GearSlot, Gear | null>;
-  backpack: Gear[];
-  capacity: number;
-};
-
-export type AutoEquipResponse = {
-  ok: true;
-  player: Player;
-  equipment: EquipmentPayload;
-  changedSlots: GearSlot[];
-};
-
-export type EquipGearResponse = {
-  ok: true;
-  player: Player;
-  equipment: EquipmentPayload;
-  equipped: Gear;
-  replaced?: Gear | null;
-};
-
-export type BootstrapPayload = {
-  player: Player;
-  floor: Floor;
-  redDots: RedDots;
-  activity: ActivityRow[];
-};
-
-export type ReportsPayload = {
-  rows: Report[];
-  nextCursor?: string;
-};
-
-export type OccupyResponse = {
-  player: Player;
-  node: TowerNode;
-};
-
-export type ClaimResponse = {
-  rewards: Reward[];
-  rewardTokens?: string[];
-  player: Player;
-};
-
-export type LeaveResponse = {
-  player: Player;
-};
 
 export interface Report {
   id: string;
@@ -272,7 +263,22 @@ export interface Report {
   time?: string;
   battleId?: string;
   createdAt?: number;
+  createdAtIso?: string;
   unread: boolean;
+}
+
+export type ReportsPayload = {
+  rows: Report[];
+  nextCursor?: string;
+};
+
+export interface PlayerSettings {
+  locale: "en" | "zh-CN";
+  sfx: boolean;
+  music: boolean;
+  notifications: boolean;
+  battleSpeed: "normal" | "fast" | "instant";
+  updatedAt?: string;
 }
 
 export interface ActivityRow {
@@ -295,11 +301,41 @@ export interface RedDots {
   floor?: boolean | number;
 }
 
-export type PlayerSettings = {
-  locale: "en" | "zh-CN";
-  sfx: boolean;
-  music: boolean;
-  notifications: boolean;
-  battleSpeed: "normal" | "fast" | "instant";
-  updatedAt?: string;
+export type BootstrapPayload = {
+  player: Player;
+  floor: Floor;
+  redDots: RedDots;
+  activity: ActivityRow[];
+  garrison?: Garrison | null;
 };
+
+export interface ApiErrorResponse {
+  ok: false;
+  code: ApiErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+  requestId: string;
+}
+
+export type ApiErrorCode =
+  | "PLAYER_NOT_FREE"
+  | "PLAYER_IN_BATTLE"
+  | "PLAYER_GARRISONING"
+  | "NODE_NOT_FOUND"
+  | "NODE_LOCKED"
+  | "NODE_PROTECTED"
+  | "NODE_NOT_CHALLENGEABLE"
+  | "NODE_NOT_OCCUPIABLE"
+  | "NOT_NODE_OWNER"
+  | "GARRISON_NOT_FOUND"
+  | "NO_REWARDS_TO_CLAIM"
+  | "GEAR_NOT_FOUND"
+  | "GEAR_SLOT_MISMATCH"
+  | "REPORT_NOT_FOUND"
+  | "INSUFFICIENT_TICKETS"
+  | "CONFLICT_STATE_CHANGED"
+  | "DUPLICATE_REQUEST"
+  | "VALIDATION_ERROR"
+  | "INTERNAL_ERROR"
+  | "BATTLE_NOT_FOUND"
+  | "BATTLE_NOT_COMPLETED";
